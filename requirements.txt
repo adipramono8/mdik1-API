@@ -1,2 +1,2 @@
 fastapi[all]
-aiosqlite=0.21.0
+aiosqlite==0.21.0
