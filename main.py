@@ -3,9 +3,13 @@ import math
 from fastapi import FastAPI, HTTPException
 from typing import Optional
 from fastapi.responses import ORJSONResponse
+from fastapi import Query
 import httpx
 import os
 import orjson
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 # database configuration
 app = FastAPI(default_response_class=ORJSONResponse)
@@ -16,7 +20,12 @@ TABLE_NAME = 'trips'
 if not DATABASE_URL_FROM_CLOUD:
     raise ValueError("DATABASE_URL environment variable is not set.")
 
-# prevent sql injection
+# rate limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# prevent sql injection - part 1
 VALID_SORT_COLUMNS = ["pickup_datetime", "trip_miles", "trip_duration_minutes", "PULocationID", "DOLocationID"]
 
 # 'download database' function
@@ -41,16 +50,20 @@ def startup_event():
 
 # GET /trips
 @app.get("/trips")
+@limiter.limit("100/minute")
 async def get_trips(
-    page: int = 1,
-    limit: int = 1000,
-    PULocationID: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    order: str="asc"
+    # validator
+    request: Request,
+    page: int = Query(1, ge=1, description="Page number to retrieve (must be >= 1)"),
+    limit: int = Query(1000, ge=1, le=10000, description="Number of records per page (must be between 1 and 10000)"),
+    PULocationID: Optional[int] = Query(None, ge=1, description="Filter by Pickup Location ID (must be positive)"),
+    sort_by: Optional[str] = Query(None, description=f"Column to sort by. Valid options: {VALID_SORT_COLUMNS}"),
+    order: str = Query("asc", pattern="^(asc|desc)$", description="Sort order: 'asc' or 'desc'")
     ):
+
     offset = (page - 1) * limit
 
-    # bagian query
+    # parameted query
     base_query = f"SELECT * FROM {TABLE_NAME}"
     conditions = []
     values = []
@@ -63,7 +76,7 @@ async def get_trips(
     if conditions:
         base_query += " WHERE " + " AND ".join(conditions)
     
-    # order by
+    # order by + prevent sql injection - part 2
     if sort_by is not None:
         if sort_by not in VALID_SORT_COLUMNS:
             raise HTTPException(status_code=400, detail="Invalid sort_by column. Valid options are: {VALID_SORT_COLUMNS}")
