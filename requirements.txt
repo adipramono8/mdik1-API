@@ -1,2 +1,3 @@
 fastapi[all]
 aiosqlite==0.21.0
+slowapi==0.1.9
