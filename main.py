@@ -3,7 +3,7 @@ import math
 from fastapi import FastAPI, HTTPException
 from typing import Optional
 from fastapi.responses import ORJSONResponse
-from fastapi import Query
+from fastapi import Query, Request
 import httpx
 import os
 import orjson
