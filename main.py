@@ -55,7 +55,7 @@ async def get_trips(
     # validator
     request: Request,
     page: int = Query(1, ge=1, description="Page number to retrieve (must be >= 1)"),
-    limit: int = Query(1000, ge=1, le=10000, description="Number of records per page (must be between 1 and 10000)"),
+    limit: int = Query(1000, ge=1, le=1000000, description="Number of records per page (must be between 1 and 10000)"),
     PULocationID: Optional[int] = Query(None, ge=1, description="Filter by Pickup Location ID (must be positive)"),
     sort_by: Optional[str] = Query(None, description=f"Column to sort by. Valid options: {VALID_SORT_COLUMNS}"),
     order: str = Query("asc", pattern="^(asc|desc)$", description="Sort order: 'asc' or 'desc'")
